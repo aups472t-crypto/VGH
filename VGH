@@ -1,0 +1,122 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "Basic Test Script",
+   LoadingTitle = "กำลังโหลดสคริปต์...",
+   LoadingSubtitle = "Invisible | HP 1000 | DMG 200",
+   ConfigurationSaving = { Enabled = false }
+})
+
+local MainTab = Window:CreateTab("หลัก", 4483362458)
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local InvisibleOn = false
+local Hp1000On = false
+local DamageValue = 200
+local SavedTransparency = {}
+
+-- ==========================================
+-- 1. หายตัว (ซ่อนชิ้นส่วนตัวละครฝั่งเรา)
+-- ==========================================
+local function setInvisible(state)
+    local char = LocalPlayer.Character
+    if not char then return end
+
+    if state then
+        table.clear(SavedTransparency)
+        for _, part in ipairs(char:GetDescendants()) do
+            if (part:IsA("BasePart") or part:IsA("Decal")) and part.Name ~= "HumanoidRootPart" then
+                SavedTransparency[part] = part.Transparency
+                part.Transparency = 1
+            end
+        end
+    else
+        for part, oldVal in pairs(SavedTransparency) do
+            if part and part.Parent then
+                pcall(function()
+                    part.Transparency = oldVal
+                end)
+            end
+        end
+        table.clear(SavedTransparency)
+    end
+end
+
+MainTab:CreateToggle({
+   Name = "1. หายตัว",
+   CurrentValue = false,
+   Callback = function(Value)
+       InvisibleOn = Value
+       setInvisible(Value)
+   end,
+})
+
+-- ==========================================
+-- 2. เลือด 1,000
+-- ==========================================
+MainTab:CreateToggle({
+   Name = "2. เลือด 1,000",
+   CurrentValue = false,
+   Callback = function(Value)
+       Hp1000On = Value
+       task.spawn(function()
+           while Hp1000On do
+               pcall(function()
+                   local char = LocalPlayer.Character
+                   local hum = char and char:FindFirstChildOfClass("Humanoid")
+                   if hum and hum.Health > 0 then
+                       hum.MaxHealth = 1000
+                       hum.Health = 1000
+                   end
+               end)
+               task.wait(0.2)
+           end
+       end)
+   end,
+})
+
+-- ==========================================
+-- 3. ดาเมจ 200 (ปรับค่าตัวเลขดาเมจในอาวุธ/ค่าที่เข้าถึงได้)
+-- ==========================================
+local function applyDamage200()
+    local char = LocalPlayer.Character
+    local backpack = LocalPlayer:FindFirstChild("Backpack")
+    local targets = {char, backpack}
+
+    for _, container in ipairs(targets) do
+        if container then
+            for _, obj in ipairs(container:GetDescendants()) do
+                if (obj:IsA("NumberValue") or obj:IsA("IntValue")) and string.lower(obj.Name):find("damage") then
+                    pcall(function()
+                        obj.Value = DamageValue
+                    end)
+                end
+                for attrName, attrVal in pairs(obj:GetAttributes()) do
+                    if type(attrVal) == "number" and string.lower(attrName):find("damage") then
+                        pcall(function()
+                            obj:SetAttribute(attrName, DamageValue)
+                        end)
+                    end
+                end
+            end
+        end
+    end
+end
+
+MainTab:CreateButton({
+   Name = "3. ตั้งดาเมจเป็น 200",
+   Callback = function()
+       applyDamage200()
+   end,
+})
+
+-- คืนค่าการหายตัวเมื่อเกิดใหม่
+LocalPlayer.CharacterAdded:Connect(function(char)
+    char:WaitForChild("Humanoid")
+    task.wait(0.3)
+    if InvisibleOn then
+        setInvisible(true)
+    end
+end)
